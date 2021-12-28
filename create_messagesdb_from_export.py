@@ -201,13 +201,18 @@ class MessageManager:
         self.lowest_msg += msg_id
 
     def add_message(self, chat_name: str, msg: str, msg_id: int):
+        """
+        Only supports text messages (no media or system) yet.
+        """
         # various system messages
         if ":" not in msg:
             assert re.search(r"Your security code with .* has changed. Tap to learn more.", msg)
             return
 
-        header, content = msg.split(":")
-        timestamp = android_timestamp(header.split(" - ")[0])
+        formatted_ts, content = msg.split(" - ")
+        timestamp = android_timestamp(formatted_ts)
+        if ": " not in content:
+            return
         part = content.index(": ")
         contact = content[:part]
         text = content[part + 2:]
