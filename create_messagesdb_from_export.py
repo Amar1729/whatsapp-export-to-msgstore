@@ -166,19 +166,21 @@ class MessageManager:
     def _next_lowest_chat(self) -> int:
         proc = self.cur.execute("SELECT _id FROM chat")
         chat_ids = [p[0] for p in proc]
-        return sorted(chat_ids)[-1] + 1
+        return sorted(chat_ids)[-1] + 1 if chat_ids else 1
 
     def _next_lowest_msg(self) -> int:
         proc = self.cur.execute("SELECT _id FROM legacy_available_messages_view")
         msg_ids = [p[0] for p in proc]
-        return sorted(msg_ids)[-1] + 1
+        return sorted(msg_ids)[-1] + 1 if msg_ids else 1
 
     def add_chat(self, chat_path: Path):
         prep_jid = "insert into jid(_id, user, server, raw_string) values (?, ?, ?, ?)"
         prep_chat = "insert into chat(_id, jid_row_id, hidden) values (?, ?, ?)"
         # prep_msg_thumb = "insert into message_thumbnails (?, ?, ?, ?, ?)"
 
-        r = re.match(r"WhatsApp Chat with (.*).txt", chat_file)
+        chat_dir = chat_path.parent  # TODO - use this to add media
+        chat_file = chat_path.parts[-1]
+        r = re.match(r"WhatsApp Chat with (.*).txt", str(chat_file))
         assert r is not None
         chat_contact = r.group(1)
         server = "s.whatsapp.net"
@@ -193,7 +195,7 @@ class MessageManager:
 
         msg_id = 0
         for msg_id, msg in enumerate(lines):
-            self.add_message(chat_name, msg, msg_id)
+            self.add_message(chat_name, msg, msg_id + 1)
 
         self.con.commit()
 
@@ -222,7 +224,7 @@ class MessageManager:
 
         fields = default_msg_fields()
 
-        fields["id"] = self.lowest_msg + msg_id
+        fields["id"] = self.lowest_msg + msg_id - 1
         fields["key_remote_jid"] = chat_name
         fields["key_from_me"] = key_from_me
         fields["key_id"] = key_id
