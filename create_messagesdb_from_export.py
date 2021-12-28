@@ -179,12 +179,12 @@ class MessageManager:
 
         msg_id = 0
         for msg_id, msg in enumerate(chat):
-            self.add_message(chat_name, msg, msg_id + 1)
+            self.add_message(chat_name, msg, msg_id)
 
         self.con.commit()
 
         self.lowest_chat += 1
-        self.lowest_msg += msg_id
+        self.lowest_msg += msg_id + 1
 
     def add_message(self, chat_name: str, msg: TxtMessage, msg_id: int):
         """
@@ -200,11 +200,11 @@ class MessageManager:
         elif msg.type == MsgType.TEXT:
 
             key_from_me = 1 if msg.contact_name == self.user_name else 0
-            key_id = f"keyId-{self.lowest_chat:>04}-{msg_id:>04}"
+            key_id = f"keyId-{self.lowest_chat:>04}-{msg_id + 1:>04}"
 
             fields = default_msg_fields()
 
-            fields["id"] = self.lowest_msg + msg_id - 1
+            fields["id"] = self.lowest_msg + msg_id
             fields["key_remote_jid"] = chat_name
             fields["key_from_me"] = key_from_me
             fields["key_id"] = key_id
