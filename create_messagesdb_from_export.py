@@ -9,11 +9,14 @@ WhatsApp messages.db files have three important tables:
 """
 
 import argparse
-import datetime
 import re
 import sqlite3
 from pathlib import Path
 from typing import NamedTuple, Optional
+
+from messages import (
+    android_timestamp,
+)
 
 
 OUT_DB = "messages.db"
@@ -71,6 +74,7 @@ def default_msg_fields():
     # Caller should also set important fields:
     key_remote_jid, key_from_me, data, timestamp, received_timestamp
     """
+
     return {
         # "id": chat_id,
         # "key_remote_jid": chat_name,
@@ -82,10 +86,9 @@ def default_msg_fields():
         # "timestamp": timestamp,
         "media_url": None,
         "media_mime_type": None,
-        "media_wa_type": None,
+        "media_wa_type": 0,
         "media_size": 0,
         "media_name": None,
-        "media_caption": None,
         "media_hash": None,
         "media_duration": 0,
         "origin": 1,
@@ -97,10 +100,11 @@ def default_msg_fields():
         "send_timestamp": -1,
         "receipt_server_timestamp": -1,
         "receipt_device_timestamp": -1,
-        "read_device_timestamp": None,
-        "played_device_timestamp": None,
         "raw_data": None,
         "recipient_count": None,
+        "read_device_timestamp": None,
+        "played_device_timestamp": None,
+        "media_caption": None,
         "participant_hash": None,
         "starred": None,
         "quoted_row_id": 0,
@@ -109,19 +113,12 @@ def default_msg_fields():
         "edit_version": 0,
         "media_enc_hash": None,
         "payment_transaction_id": None,
-        "forwarded": 0,
+        "forwarded": None,
+        "future_message_type": None,
+        "lookup_tables": None,
         "preview_type": None,
         "send_count": None,
-        "lookup_tables": None,
-        "future_message_type": None,
     }
-
-
-def android_timestamp(formatted_ts: str) -> int:
-    """
-    get unix timestamp for message
-    """
-    return int(datetime.datetime.strptime(formatted_ts, "%m/%d/%y, %H:%M").strftime("%s")) * 1000
 
 
 def parse_media(fname: str) -> bytes:
@@ -176,9 +173,9 @@ class MessageManager:
         msg_ids = [p[0] for p in proc]
         return sorted(msg_ids)[-1] + 1
 
-    def add_chat(self, chat_file: str):
-        prep_jid = "insert into jid (?, ?, ?, ?)"
-        prep_chat = "insert into chat (?, ?, ?)"
+    def add_chat(self, chat_path: Path):
+        prep_jid = "insert into jid(_id, user, server, raw_string) values (?, ?, ?, ?)"
+        prep_chat = "insert into chat(_id, jid_row_id, hidden) values (?, ?, ?)"
         # prep_msg_thumb = "insert into message_thumbnails (?, ?, ?, ?, ?)"
 
         r = re.match(r"WhatsApp Chat with (.*).txt", chat_file)
@@ -228,7 +225,7 @@ class MessageManager:
         fields["timestamp"] = timestamp
         fields["received_timestamp"] = timestamp
 
-        prep_msg = "insert into messages values (" + ", ".join(["?" for _ in range(41)]) + ")"
+        prep_msg = "insert into messages values (" + ", ".join(["?" for _ in range(42)]) + ")"
         self.cur.execute(prep_msg, Message(**fields))
 
 
