@@ -31,3 +31,8 @@ The `.sql` files under `./data` are copied from that repository (MIT License).
 
 1. https://github.com/MarcoG3/WhatsDump
 2. https://github.com/EliteAndroidApps/WhatsApp-Key-DB-Extractor
+
+
+## LICENSE
+
+Please note this repository is GPL3-licensed. You must disclose the source code for any projects built using this code.
