@@ -239,9 +239,19 @@ class MessageManager:
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--chat", nargs="*", help="Chat (.txt) to add to messages.db")
+    parser.add_argument(
+        "--chat",
+        nargs="*",
+        type=Path,
+        required=True,
+        help="Chat (.txt) to add to messages.db",
+    )
 
-    parser.add_argument("--name", help="Your full name, as it appears in your exported chat .txt files")
+    parser.add_argument(
+        "--name",
+        required=True,
+        help="Your full name, as it appears in your exported chat .txt files",
+    )
 
     args = parser.parse_args()
 
