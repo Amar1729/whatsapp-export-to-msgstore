@@ -15,7 +15,9 @@ from pathlib import Path
 from typing import NamedTuple, Optional
 
 from messages import (
-    android_timestamp,
+    MsgType,
+    TxtMessage,
+    ChatParser,
 )
 
 
@@ -121,21 +123,6 @@ def default_msg_fields():
     }
 
 
-def parse_media(fname: str) -> bytes:
-    """
-    Return raw bytes of a media file.
-    """
-    with open(fname, "rb") as f:
-        content = f.read()
-
-    blob_str = "".join([
-        f"{hex(b)[2:]:>02}"
-        for b in content
-    ])
-
-    return blob_str.encode()
-
-
 class MessageManager:
     def __init__(self, user_name: str, db: str):
         self.user_name = user_name
@@ -178,7 +165,6 @@ class MessageManager:
         prep_chat = "insert into chat(_id, jid_row_id, hidden) values (?, ?, ?)"
         # prep_msg_thumb = "insert into message_thumbnails (?, ?, ?, ?, ?)"
 
-        chat_dir = chat_path.parent  # TODO - use this to add media
         chat_file = chat_path.parts[-1]
         r = re.match(r"WhatsApp Chat with (.*).txt", str(chat_file))
         assert r is not None
@@ -189,12 +175,10 @@ class MessageManager:
         self.cur.execute(prep_jid, (self.lowest_chat, chat_contact, server, chat_name))
         self.cur.execute(prep_chat, (self.lowest_chat, self.lowest_chat, 0))
 
-        # hardcoded for testing
-        line = "5/12/17, 17:48 - First Last: This is a test message"
-        lines = [line]
+        chat = ChatParser(chat_path)
 
         msg_id = 0
-        for msg_id, msg in enumerate(lines):
+        for msg_id, msg in enumerate(chat):
             self.add_message(chat_name, msg, msg_id + 1)
 
         self.con.commit()
@@ -202,38 +186,34 @@ class MessageManager:
         self.lowest_chat += 1
         self.lowest_msg += msg_id
 
-    def add_message(self, chat_name: str, msg: str, msg_id: int):
+    def add_message(self, chat_name: str, msg: TxtMessage, msg_id: int):
         """
         Only supports text messages (no media or system) yet.
         """
-        # various system messages
-        if ":" not in msg:
-            assert re.search(r"Your security code with .* has changed. Tap to learn more.", msg)
-            return
+        if msg.type in [MsgType.CALL, MsgType.SYSTEM]:
+            pass
 
-        formatted_ts, content = msg.split(" - ")
-        timestamp = android_timestamp(formatted_ts)
-        if ": " not in content:
-            return
-        part = content.index(": ")
-        contact = content[:part]
-        text = content[part + 2:]
+        elif msg.type == MsgType.MEDIA:
+            # unsupported (for now)
+            pass
 
-        key_from_me = 1 if contact == self.user_name else 0
-        key_id = f"keyId-{self.lowest_chat:>04}-{msg_id:>04}"
+        elif msg.type == MsgType.TEXT:
 
-        fields = default_msg_fields()
+            key_from_me = 1 if msg.contact_name == self.user_name else 0
+            key_id = f"keyId-{self.lowest_chat:>04}-{msg_id:>04}"
 
-        fields["id"] = self.lowest_msg + msg_id - 1
-        fields["key_remote_jid"] = chat_name
-        fields["key_from_me"] = key_from_me
-        fields["key_id"] = key_id
-        fields["data"] = text
-        fields["timestamp"] = timestamp
-        fields["received_timestamp"] = timestamp
+            fields = default_msg_fields()
 
-        prep_msg = "insert into messages values (" + ", ".join(["?" for _ in range(42)]) + ")"
-        self.cur.execute(prep_msg, Message(**fields))
+            fields["id"] = self.lowest_msg + msg_id - 1
+            fields["key_remote_jid"] = chat_name
+            fields["key_from_me"] = key_from_me
+            fields["key_id"] = key_id
+            fields["data"] = msg.content
+            fields["timestamp"] = msg.timestamp
+            fields["received_timestamp"] = msg.timestamp
+
+            prep_msg = "insert into messages values (" + ", ".join(["?" for _ in range(42)]) + ")"
+            self.cur.execute(prep_msg, Message(**fields))
 
 
 def main():
